@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Flow Shooter - Pixel Art Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            overscroll-behavior-y: contain; 
+            user-select: none; 
+            -webkit-user-select: none; 
+            touch-action: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #gameCanvas { 
+            touch-action: none;
+            image-rendering: pixelated;
+        }
+        .bg-gradient-animate {
+            background: radial-gradient(circle at 50% 10%, #1e293b, #0f172a 80%);
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 flex justify-center items-center h-screen w-screen m-0 overflow-hidden text-slate-100">
+
+    <div id="game-wrapper" class="relative w-full max-w-[440px] h-full max-h-[920px] bg-slate-900 shadow-2xl flex flex-col sm:rounded-[2.5rem] sm:border-8 border-slate-800 overflow-hidden bg-gradient-animate">
+        
+        <!-- Header with Level Info & Level Switcher -->
+        <div class="h-16 flex items-center justify-between px-5 relative shadow-md glass-panel z-20 border-b border-slate-700/60">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" id="level-badge">LV 1</span>
+                <h1 class="text-base font-black tracking-wide text-white" id="level-title">Mini Yellow Duck</h1>
+            </div>
+
+            <!-- Quick Level Select Buttons -->
+            <div class="flex items-center space-x-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+                <button onclick="loadLevel(0)" id="btn-lvl-1" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-amber-500 text-slate-950 shadow-sm">1 🐥</button>
+                <button onclick="loadLevel(1)" id="btn-lvl-2" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-300 hover:text-white">2 🍄</button>
+            </div>
+        </div>
+        
+        <!-- Canvas Container -->
+        <div class="flex-1 w-full relative flex items-center justify-center overflow-hidden" id="canvas-container">
+            <canvas id="gameCanvas" width="400" height="560" class="w-full max-w-[400px] aspect-[400/560] block shadow-inner"></canvas>
+            
+            <!-- Floating Pixel Remaining Counter -->
+            <div class="absolute top-3 left-4 flex items-center space-x-1.5 glass-panel px-3 py-1 rounded-full border border-slate-700/50 shadow-md pointer-events-none">
+                <div class="w-2.5 h-2.5 rounded-sm bg-rose-500 animate-pulse"></div>
+                <span class="text-[11px] font-bold text-slate-300">Remaining: <span id="pixels-remaining" class="text-white font-extrabold">0</span></span>
+            </div>
+        </div>
+        
+        <!-- Bottom Control Deck -->
+        <div class="h-32 bg-slate-900/90 glass-panel flex flex-col items-center justify-center relative z-20 border-t-2 border-slate-700/80 shadow-[0_-15px_30px_rgba(0,0,0,0.6)]">
+            
+            <!-- Spinning Color Wheel UI -->
+            <div class="absolute -top-12 flex justify-center items-center w-[96px] h-[96px] rounded-full border-[5px] border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.6)] z-30 bg-slate-900 pointer-events-none transition-transform duration-200" id="wheel-container">
+                <div id="color-wheel" class="w-full h-full rounded-full transition-none"></div>
+                <!-- Center Dot -->
+                <div class="absolute inset-0 m-auto w-6 h-6 rounded-full bg-slate-800 border-2 border-slate-600 shadow-inner"></div>
+                <!-- Top Pointer Triangle -->
+                <div class="absolute -top-[15px] w-0 h-0 border-l-[13px] border-l-transparent border-r-[13px] border-r-transparent border-t-[18px] border-t-amber-400 drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)] z-40"></div>
+            </div>
+            
+            <div class="w-full px-6 flex justify-between items-end mt-5">
+                <!-- Moves Counter -->
+                <div class="flex flex-col items-center justify-center bg-slate-950/80 px-5 py-2 rounded-2xl border border-slate-700/80 shadow-inner min-w-[92px]">
+                    <span class="text-[10px] font-extrabold text-slate-400 tracking-widest uppercase mb-0.5">Moves</span>
+                    <span id="moves-display" class="text-3xl font-black text-amber-400 leading-none">30</span>
+                </div>
+
+                <!-- Color Name Indicator -->
+                <div class="flex flex-col items-center justify-center pb-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tap to Lock & Aim</span>
+                    <div id="status-text" class="text-xs font-black text-slate-200 mt-0.5">SPINNING WHEEL</div>
+                </div>
+                
+                <!-- Settings Button -->
+                <button onclick="toggleSettings()" class="bg-slate-950/80 p-3 rounded-2xl border border-slate-700/80 hover:bg-slate-800 hover:scale-105 transition-all shadow-inner flex flex-col items-center justify-center w-[74px] h-[64px]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-300"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Win Overlay -->
+        <div id="win-overlay" class="hidden absolute inset-0 bg-emerald-950/95 z-50 flex flex-col items-center justify-center backdrop-blur-md px-6 text-center">
+            <div class="text-7xl mb-3 animate-bounce">🎉</div>
+            <h2 class="text-5xl font-black mb-2 text-white drop-shadow-[0_0_20px_rgba(16,185,129,0.8)]">GREAT JOB!</h2>
+            <p class="text-emerald-300 font-bold text-lg mb-8" id="win-desc">Pixel Art Masterpiece Restored!</p>
+            <div class="space-y-3 w-full max-w-xs">
+                <button onclick="nextLevel()" id="btn-next-level" class="w-full py-4 bg-emerald-500 hover:bg-emerald-400 rounded-2xl font-black text-xl text-white shadow-[0_0_25px_rgba(16,185,129,0.6)] transition-all active:scale-95">Next Level 🍄</button>
+                <button onclick="restartGame()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold text-slate-300 transition-all">Replay Level</button>
+            </div>
+        </div>
+
+        <!-- Lose Overlay -->
+        <div id="lose-overlay" class="hidden absolute inset-0 bg-rose-950/95 z-50 flex flex-col items-center justify-center backdrop-blur-md px-6 text-center">
+            <div class="text-7xl mb-3">💥</div>
+            <h2 class="text-5xl font-black mb-2 text-white drop-shadow-[0_0_20px_rgba(244,63,94,0.8)]">OUT OF MOVES</h2>
+            <p class="text-rose-300 font-bold text-lg mb-8">Don't give up! Keep aiming precisely.</p>
+            <button onclick="restartGame()" class="w-full max-w-xs py-4 bg-rose-500 hover:bg-rose-400 rounded-2xl font-black text-xl text-white shadow-[0_0_25px_rgba(244,63,94,0.6)] transition-all active:scale-95">Try Again</button>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="hidden absolute inset-0 bg-slate-950/85 z-50 flex items-center justify-center backdrop-blur-md">
+            <div class="bg-slate-800/90 p-8 rounded-[2rem] border-2 border-slate-600 text-center w-10/12 max-w-sm shadow-2xl glass-panel">
+                <h2 class="text-2xl font-black mb-6 text-white uppercase tracking-wider">Game Menu</h2>
+                <div class="space-y-3">
+                    <button onclick="toggleSound()" id="sound-btn" class="w-full py-3.5 bg-slate-700/80 hover:bg-slate-700 rounded-xl font-bold text-white transition-colors flex items-center justify-center space-x-2">
+                        <span>🔊 Sound: <span id="sound-status">ON</span></span>
+                    </button>
+                    <button onclick="restartGame(); toggleSettings();" class="w-full py-3.5 bg-rose-600 hover:bg-rose-500 rounded-xl font-bold text-white transition-colors">Restart Current Level</button>
+                    <button onclick="toggleSettings()" class="w-full py-3.5 bg-slate-600 hover:bg-slate-500 rounded-xl font-bold text-white transition-colors">Resume</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Web Audio Synthesizer for rich dynamic explosion chain sounds
+        let soundEnabled = true;
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) audioCtx = new AudioContextClass();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playPopSound(step = 0) {
+            if (!soundEnabled) return;
+            try {
+                const ac = getAudioContext();
+                if (!ac) return;
+                const osc = ac.createOscillator();
+                const gain = ac.createGain();
+                const now = ac.currentTime;
+
+                // Frequency scales up with each wave in the chain reaction
+                const baseFreq = 240;
+                const freq = Math.min(900, baseFreq * Math.pow(1.10, step));
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.4, now + 0.1);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(ac.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.11);
+            } catch (e) {
+                // Ignore audio restriction errors
+            }
+        }
+
+        function playShootSound() {
+            if (!soundEnabled) return;
+            try {
+                const ac = getAudioContext();
+                if (!ac) return;
+                const osc = ac.createOscillator();
+                const gain = ac.createGain();
+                const now = ac.currentTime;
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.12);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                osc.connect(gain);
+                gain.connect(ac.destination);
+                osc.start(now);
+                osc.stop(now + 0.13);
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-status').innerText = soundEnabled ? 'ON' : 'OFF';
+        }
+
+        // ==========================================
+        // LEVEL DEFINITIONS (DUCK & MARD 482 SPROUT)
+        // ==========================================
+        // Level 1: Mini Yellow Duck from User's 1st image
+        // Color IDs:
+        // 1: Black (#1e293b)
+        // 2: Yellow (#fbbf24)
+        // 3: Orange (#f97316)
+        const DUCK_RAW = [
+            '...............',
+            '.....1111......',
+            '....122221.....',
+            '...12222221....',
+            '...12212331....',
+            '...122233331...',
+            '...122222111...',
+            '..11122221.....',
+            '.1222222221....',
+            '.1222222221....',
+            '..122222221....',
+            '...11111111....',
+            '...............'
+        ];
+
+        // Level 2: Mard 482 Tree / Sprout from User's 2nd image
+        // Color IDs:
+        // 1: Black (#18181b - H7)
+        // 2: Green (#22c55e - B8)
+        // 3: Brown (#b47d4e - M9)
+        // 4: Light Blue (#38bdf8 - C28)
+        // 5: Dark Green (#15803d - B12)
+        // 6: White (#ffffff - H1)
+        function buildMardPattern() {
+            const W = 29, H = 29;
+            let mard = Array.from({ length: H }, () => Array(W).fill(0));
+            
+            function fillRow(r, spans) {
+                // r is 1-indexed, c is 1-indexed
+                for (let span of spans) {
+                    let [c1, c2, val] = span;
+                    for (let c = c1; c <= c2; c++) {
+                        if (r <= H && c <= W) {
+                            mard[r - 1][c - 1] = val;
+                        }
+                    }
+                }
+            }
+
+            fillRow(1, [[14, 15, 1]]);
+            fillRow(2, [[13, 13, 1], [14, 15, 2], [16, 16, 1]]);
+            fillRow(3, [[11, 12, 1], [13, 16, 2], [17, 18, 1]]);
+            fillRow(4, [[9, 10, 1], [11, 18, 2], [19, 20, 1]]);
+            fillRow(5, [[8, 8, 1], [9, 10, 4], [11, 11, 1], [12, 20, 2], [21, 22, 1]]);
+            fillRow(6, [[7, 7, 1], [8, 8, 4], [9, 9, 6], [10, 10, 4], [11, 11, 1], [12, 22, 2], [23, 23, 1]]);
+            fillRow(7, [[7, 7, 1], [8, 8, 4], [9, 9, 6], [10, 10, 4], [11, 11, 1], [12, 23, 2], [24, 24, 1]]);
+            fillRow(8, [[6, 6, 1], [7, 7, 6], [8, 10, 4], [11, 11, 1], [12, 24, 2], [25, 25, 1]]);
+            fillRow(9, [[6, 6, 1], [7, 7, 6], [8, 10, 4], [11, 11, 1], [12, 25, 2], [26, 26, 1]]);
+            fillRow(10, [[5, 6, 1], [7, 10, 4], [11, 11, 1], [12, 25, 2], [26, 26, 1]]);
+            fillRow(11, [[4, 4, 1], [5, 5, 2], [6, 11, 1], [12, 25, 2], [26, 26, 1]]);
+            fillRow(12, [[4, 4, 1], [5, 25, 2], [26, 26, 1]]);
+            fillRow(13, [[4, 4, 1], [5, 23, 2], [24, 25, 1]]);
+            fillRow(14, [[4, 4, 1], [5, 25, 2], [26, 27, 1]]);
+            fillRow(15, [[2, 2, 1], [5, 10, 2], [11, 11, 1], [12, 18, 2], [19, 19, 1], [20, 25, 2], [28, 28, 1]]);
+            fillRow(16, [[3, 4, 1], [5, 10, 2], [11, 11, 1], [12, 18, 2], [19, 19, 1], [20, 25, 2], [26, 27, 1]]);
+            fillRow(17, [[4, 4, 1], [5, 9, 2], [10, 11, 5], [12, 13, 2], [14, 15, 1], [16, 17, 2], [18, 19, 5], [20, 24, 2], [25, 25, 1]]);
+            fillRow(18, [[4, 4, 1], [5, 25, 2], [26, 26, 1]]);
+            fillRow(19, [[4, 4, 1], [5, 25, 2], [26, 26, 1]]);
+            fillRow(20, [[4, 4, 1], [5, 25, 2], [26, 26, 1]]);
+            fillRow(21, [[4, 4, 1], [5, 25, 2], [26, 26, 1]]);
+            fillRow(22, [[5, 5, 1], [6, 24, 2], [25, 25, 1]]);
+            fillRow(23, [[6, 7, 1], [8, 22, 2], [23, 24, 1]]);
+            fillRow(24, [[8, 22, 1]]);
+            fillRow(25, [[11, 11, 1], [12, 18, 3], [19, 19, 1]]);
+            fillRow(26, [[11, 11, 1], [12, 18, 3], [19, 19, 1]]);
+            fillRow(27, [[10, 10, 1], [11, 19, 3], [20, 20, 1]]);
+            fillRow(28, [[10, 10, 1], [11, 13, 3], [14, 16, 1], [17, 19, 3], [20, 20, 1]]);
+            fillRow(29, [[10, 13, 1], [17, 20, 1]]);
+
+            return mard;
+        }
+
+        const levels = [
+            {
+                name: "Mini Yellow Duck",
+                badge: "LV 1 🐥",
+                moves: 30,
+                rows: DUCK_RAW.length,
+                cols: DUCK_RAW[0].length,
+                cellSize: 23,
+                offsetY: 45,
+                pattern: DUCK_RAW.map(row => row.split('').map(ch => ch === '.' ? 0 : parseInt(ch)))
+            },
+            {
+                name: "Mard Sprout (482)",
+                badge: "LV 2 🍄",
+                moves: 55,
+                rows: 29,
+                cols: 29,
+                cellSize: 12,
+                offsetY: 20,
+                pattern: buildMardPattern()
+            }
+        ];
+
+        let currentLevelIndex = 0;
+        let currentLevel = levels[0];
+
+        // Palette definition
+        function getColorHex(id) {
+            switch(id) {
+                case 1: return '#1e293b'; // Slate Black
+                case 2: 
+                    return currentLevelIndex === 0 ? '#fbbf24' : '#22c55e'; // Duck Yellow or Sprout Green
+                case 3: 
+                    return currentLevelIndex === 0 ? '#ea580c' : '#b47d4e'; // Duck Orange or Sprout Brown
+                case 4: return '#38bdf8'; // Light Blue (Water drop)
+                case 5: return '#15803d'; // Dark Green (Blush)
+                case 6: return '#ffffff'; // White (Glint)
+                default: return '#f8fafc';
+            }
+        }
+
+        // ==========================================
+        // GAME STATE & OBJECTS
+        // ==========================================
+        let gameState = 'SPINNING'; // SPINNING, READY_TO_AIM, AIMING, SHOOTING, RESOLVING, WIN, LOSE
+        let moves = 30;
+        let selectedColor = 1;
+        let wheelRotation = 0;
+        let activeColors = [];
+        let pointerX = 200;
+        let pointerY = 300;
+        let isAiming = false;
+        let screenShake = 0;
+
+        let COLS = 15;
+        let ROWS = 13;
+        let cellSize = 23;
+        let gridOffsetX = 25;
+        let gridOffsetY = 45;
+
+        class Block {
+            constructor(c, r, colorId) {
+                this.logicalC = c;
+                this.logicalR = r;
+                this.color = colorId;
+                this.active = true;
+                this.flash = 0; // 0 to 1 for explosion flash effect
+            }
+            
+            get visualX() {
+                return gridOffsetX + this.logicalC * cellSize;
+            }
+
+            get visualY() {
+                // FIXED IN PLACE! NO COLLAPSE/FALLING AS REQUESTED
+                return gridOffsetY + this.logicalR * cellSize;
+            }
+            
+            draw(ctx) {
+                if (!this.active) return;
+                const x = this.visualX;
+                const y = this.visualY;
+                const pad = Math.max(1, Math.round(cellSize * 0.05));
+                const size = cellSize - pad * 2;
+                const radius = Math.max(2, Math.round(cellSize * 0.15));
+
+                ctx.save();
+                let hex = getColorHex(this.color);
+                
+                // Block base
+                ctx.fillStyle = hex;
+                ctx.beginPath();
+                ctx.roundRect(x + pad, y + pad, size, size, radius);
+                ctx.fill();
+                
+                // 3D Bevel Highlight (Top-Left)
+                ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                ctx.beginPath();
+                ctx.roundRect(x + pad, y + pad, size, Math.max(2, Math.round(size * 0.28)), [radius, radius, 0, 0]);
+                ctx.fill();
+                
+                // 3D Bevel Shadow (Bottom-Right)
+                ctx.fillStyle = 'rgba(0,0,0,0.25)';
+                ctx.beginPath();
+                ctx.roundRect(x + pad, y + size - Math.max(2, Math.round(size * 0.25)) + pad, size, Math.max(2, Math.round(size * 0.25)), [0, 0, radius, radius]);
+                ctx.fill();
+
+                // Flash highlight on explosive reaction
+                if (this.flash > 0) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.flash * 0.8})`;
+                    ctx.beginPath();
+                    ctx.roundRect(x + pad, y + pad, size, size, radius);
+                    ctx.fill();
+                    this.flash = Math.max(0, this.flash - 0.15);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        let blocks = [];
+        let grid = []; // 2D array [row][col]
+
+        const cannon = { x: 200, y: 500 };
+        const bullet = { x: 0, y: 0, vx: 0, vy: 0, radius: 9, color: 1, active: false };
+        const bulletSpeed = 16;
+        let particles = [];
+        let shockwaves = [];
+
+        // ==========================================
+        // LEVEL INITIALIZATION
+        // ==========================================
+        function loadLevel(index) {
+            currentLevelIndex = index;
+            currentLevel = levels[index];
+
+            COLS = currentLevel.cols;
+            ROWS = currentLevel.rows;
+            cellSize = currentLevel.cellSize;
+            gridOffsetY = currentLevel.offsetY;
+            gridOffsetX = Math.floor((canvas.width - COLS * cellSize) / 2);
+
+            document.getElementById('level-title').innerText = currentLevel.name;
+            document.getElementById('level-badge').innerText = currentLevel.badge;
+
+            // Update UI buttons
+            document.getElementById('btn-lvl-1').className = index === 0 
+                ? 'px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-amber-500 text-slate-950 shadow-sm'
+                : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-300 hover:text-white';
+            document.getElementById('btn-lvl-2').className = index === 1 
+                ? 'px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-emerald-500 text-slate-950 shadow-sm'
+                : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-300 hover:text-white';
+
+            initLevel();
+        }
+
+        function initLevel() {
+            blocks = [];
+            grid = [];
+            
+            for (let r = 0; r < ROWS; r++) {
+                let row = [];
+                for (let c = 0; c < COLS; c++) {
+                    let colorId = currentLevel.pattern[r][c];
+                    if (colorId !== 0) {
+                        let b = new Block(c, r, colorId);
+                        blocks.push(b);
+                        row.push(b);
+                    } else {
+                        row.push(null);
+                    }
+                }
+                grid.push(row);
+            }
+
+            moves = currentLevel.moves;
+            document.getElementById('moves-display').innerText = moves;
+            document.getElementById('pixels-remaining').innerText = blocks.length;
+            
+            gameState = 'SPINNING';
+            bullet.active = false;
+            particles = [];
+            shockwaves = [];
+            isAiming = false;
+            screenShake = 0;
+
+            updateActiveColors();
+
+            document.getElementById('win-overlay').classList.add('hidden');
+            document.getElementById('lose-overlay').classList.add('hidden');
+            document.getElementById('wheel-container').classList.remove('scale-90', 'opacity-50', 'grayscale');
+            document.getElementById('status-text').innerText = 'SPINNING WHEEL';
+        }
+
+        function updateActiveColors() {
+            let colors = new Set();
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c] && grid[r][c].active) {
+                        colors.add(grid[r][c].color);
+                    }
+                }
+            }
+            activeColors = Array.from(colors).sort();
+            updateWheelColors();
+            updateRemainingCount();
+        }
+
+        function updateRemainingCount() {
+            const count = blocks.filter(b => b.active).length;
+            document.getElementById('pixels-remaining').innerText = count;
+        }
+
+        function updateWheelColors() {
+            if (activeColors.length === 0) return;
+            const slice = 360 / activeColors.length;
+            let gradient = 'conic-gradient(';
+            activeColors.forEach((c, i) => {
+                const hex = getColorHex(c);
+                const startAngle = i * slice;
+                const endAngle = (i + 1) * slice;
+                gradient += `${hex} ${startAngle}deg ${endAngle}deg${i < activeColors.length - 1 ? ', ' : ''}`;
+            });
+            gradient += ')';
+            document.getElementById('color-wheel').style.background = gradient;
+        }
+
+        function determineSelectedColor() {
+            if (activeColors.length === 0) return;
+            let normalizedRotation = (360 - (wheelRotation % 360)) % 360;
+            let sliceAngle = 360 / activeColors.length;
+            let index = Math.floor(normalizedRotation / sliceAngle);
+            if (index >= activeColors.length) index = activeColors.length - 1;
+            selectedColor = activeColors[index];
+        }
+
+        // ==========================================
+        // 8-DIRECTION PIXEL SPREAD & EXPLOSION CHAIN
+        // ==========================================
+        function spawnEightDirectionParticles(centerX, centerY, colorId, size) {
+            const hex = getColorHex(colorId);
+            
+            // 8 Exact Directions: N, NE, E, SE, S, SW, W, NW
+            const directions = [
+                { angle: -Math.PI / 2, name: 'N' },
+                { angle: -Math.PI / 4, name: 'NE' },
+                { angle: 0,             name: 'E' },
+                { angle: Math.PI / 4,   name: 'SE' },
+                { angle: Math.PI / 2,   name: 'S' },
+                { angle: (3 * Math.PI) / 4, name: 'SW' },
+                { angle: Math.PI,       name: 'W' },
+                { angle: (-3 * Math.PI) / 4, name: 'NW' }
+            ];
+
+            // Speed calibrated to reach the exact neighboring block before fading
+            const spreadSpeed = size * 0.24;
+            const pSize = Math.max(3, Math.round(size * 0.42));
+
+            directions.forEach(dir => {
+                // Main directional pixel block
+                particles.push({
+                    x: centerX,
+                    y: centerY,
+                    vx: Math.cos(dir.angle) * spreadSpeed,
+                    vy: Math.sin(dir.angle) * spreadSpeed,
+                    life: 1.0,
+                    decay: 0.045,
+                    color: hex,
+                    size: pSize,
+                    isDirectional: true
+                });
+
+                // Secondary micro-spark in the same vector for trail luster
+                particles.push({
+                    x: centerX,
+                    y: centerY,
+                    vx: Math.cos(dir.angle) * spreadSpeed * 0.6,
+                    vy: Math.sin(dir.angle) * spreadSpeed * 0.6,
+                    life: 0.8,
+                    decay: 0.06,
+                    color: '#ffffff',
+                    size: Math.max(2, Math.round(pSize * 0.45)),
+                    isDirectional: true
+                });
+            });
+
+            // Random micro-embers for bursting crunch
+            for (let i = 0; i < 4; i++) {
+                let rndAngle = Math.random() * Math.PI * 2;
+                let rndSpeed = (Math.random() * 2 + 1);
+                particles.push({
+                    x: centerX,
+                    y: centerY,
+                    vx: Math.cos(rndAngle) * rndSpeed,
+                    vy: Math.sin(rndAngle) * rndSpeed,
+                    life: 0.9,
+                    decay: 0.07,
+                    color: hex,
+                    size: Math.max(2, Math.round(pSize * 0.3)),
+                    isDirectional: false
+                });
+            }
+
+            // Shockwave ring
+            shockwaves.push({
+                x: centerX,
+                y: centerY,
+                radius: 2,
+                maxRadius: size * 1.6,
+                life: 1.0,
+                color: hex
+            });
+        }
+
+        // Ripple/Wave-based BFS flood fill
+        function triggerRippleExplosion(startR, startC, targetColor) {
+            let startBlock = grid[startR][startC];
+            if (!startBlock || startBlock.color !== targetColor) return;
+
+            // BFS to gather connected blocks and their distance wave
+            let queue = [{ r: startR, c: startC, dist: 0 }];
+            let visited = new Set();
+            visited.add(`${startR},${startC}`);
+            
+            // Map of wave index -> array of positions
+            let waves = [];
+
+            // 8-direction adjacency for comprehensive organic chain-reaction
+            const dirs = [
+                [-1, 0], [1, 0], [0, -1], [0, 1], // Cardinal
+                [-1, -1], [-1, 1], [1, -1], [1, 1] // Diagonal
+            ];
+
+            while (queue.length > 0) {
+                let curr = queue.shift();
+                
+                if (!waves[curr.dist]) waves[curr.dist] = [];
+                waves[curr.dist].push(curr);
+
+                for (let d of dirs) {
+                    let nr = curr.r + d[0];
+                    let nc = curr.c + d[1];
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        let key = `${nr},${nc}`;
+                        if (!visited.has(key)) {
+                            let neighbor = grid[nr][nc];
+                            if (neighbor && neighbor.active && neighbor.color === targetColor) {
+                                visited.add(key);
+                                queue.push({ r: nr, c: nc, dist: curr.dist + 1 });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Execute chain explosion wave by wave
+            const WAVE_DELAY_MS = 65; // Time delay between consecutive ripple waves
+            let totalWaves = waves.length;
+
+            waves.forEach((waveGroup, waveIndex) => {
+                setTimeout(() => {
+                    // Slight screen shake on each wave
+                    screenShake = Math.min(8, 2 + waveIndex * 0.6);
+                    playPopSound(waveIndex);
+
+                    waveGroup.forEach(pos => {
+                        let b = grid[pos.r][pos.c];
+                        if (b && b.active) {
+                            b.active = false;
+                            grid[pos.r][pos.c] = null; // Removed from grid, NO GRAVITY COLLAPSE
+                            
+                            const centerX = b.visualX + cellSize / 2;
+                            const centerY = b.visualY + cellSize / 2;
+                            spawnEightDirectionParticles(centerX, centerY, b.color, cellSize);
+                        }
+                    });
+
+                    updateRemainingCount();
+
+                    // If this was the last wave, wait for particles and check state
+                    if (waveIndex === totalWaves - 1) {
+                        setTimeout(() => {
+                            checkGameState();
+                            if (gameState === 'RESOLVING') {
+                                updateActiveColors();
+                                gameState = 'SPINNING';
+                                document.getElementById('wheel-container').classList.remove('scale-90');
+                                document.getElementById('status-text').innerText = 'SPINNING WHEEL';
+                            }
+                        }, 200);
+                    }
+                }, waveIndex * WAVE_DELAY_MS);
+            });
+        }
+
+        // ==========================================
+        // PARTICLES & SHOCKWAVES UPDATE
+        // ==========================================
+        function drawAndUpdateEffects(ctx) {
+            // Draw & Update Shockwaves
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                let sw = shockwaves[i];
+                sw.radius += 2.2;
+                sw.life -= 0.08;
+
+                if (sw.life <= 0 || sw.radius >= sw.maxRadius) {
+                    shockwaves.splice(i, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = sw.life * 0.7;
+                    ctx.strokeStyle = sw.color;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // Draw & Update Directional Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.94; // Deceleration so particles settle smoothly
+                p.vy *= 0.94;
+                p.life -= p.decay;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.life);
+                    ctx.fillStyle = p.color;
+
+                    if (p.isDirectional) {
+                        // Square pixel shard
+                        ctx.beginPath();
+                        ctx.roundRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size, 1);
+                        ctx.fill();
+                    } else {
+                        // Sparkle dot
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+        }
+
+        // ==========================================
+        // INPUT CONTROLS & POINTER HANDLING
+        // ==========================================
+        function updatePointer(e) {
+            if (e.touches && e.touches[0]) e = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            pointerX = (e.clientX - rect.left) * scaleX;
+            pointerY = (e.clientY - rect.top) * scaleY;
+        }
+
+        const gameWrapper = document.getElementById('game-wrapper');
+
+        gameWrapper.addEventListener('pointermove', (e) => {
+            if (e.target.closest('button')) return;
+            e.preventDefault();
+            updatePointer(e);
+            
+            if (gameState === 'READY_TO_AIM' || gameState === 'AIMING') {
+                gameState = 'AIMING';
+                isAiming = true;
+                document.getElementById('status-text').innerText = 'AIMING CANNON';
+            }
+        });
+        
+        gameWrapper.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('button')) return;
+            e.preventDefault();
+            updatePointer(e);
+            getAudioContext(); // Resume audio on user gesture
+            
+            if (gameState === 'SPINNING') {
+                gameState = 'READY_TO_AIM';
+                determineSelectedColor();
+                document.getElementById('wheel-container').classList.add('scale-90');
+                document.getElementById('status-text').innerText = 'COLOR LOCKED!';
+            } else if (gameState === 'READY_TO_AIM') {
+                isAiming = true;
+                document.getElementById('status-text').innerText = 'AIMING CANNON';
+            }
+        });
+
+        gameWrapper.addEventListener('pointerup', (e) => {
+            if (e.target.closest('button')) return;
+            e.preventDefault();
+            if (gameState === 'AIMING') {
+                shootBullet();
+            } else if (gameState === 'READY_TO_AIM') {
+                isAiming = false;
+            }
+        });
+        
+        gameWrapper.addEventListener('pointercancel', () => {
+            isAiming = false;
+        });
+
+        function shootBullet() {
+            if (moves <= 0 || bullet.active || gameState !== 'AIMING') return;
+            
+            let dx = pointerX - cannon.x;
+            let dy = pointerY - cannon.y;
+            let angle = Math.atan2(dy, dx);
+            
+            // Limit cannon to upper hemisphere with safety margins
+            if (angle > -0.15 && angle < Math.PI) angle = -0.15;
+            else if (angle >= Math.PI || angle < -Math.PI + 0.15) angle = -Math.PI + 0.15;
+
+            bullet.x = cannon.x + Math.cos(angle) * 35;
+            bullet.y = cannon.y + Math.sin(angle) * 35;
+            bullet.vx = Math.cos(angle) * bulletSpeed;
+            bullet.vy = Math.sin(angle) * bulletSpeed;
+            bullet.color = selectedColor;
+            bullet.active = true;
+            
+            gameState = 'SHOOTING';
+            isAiming = false;
+            document.getElementById('status-text').innerText = 'BULLET IN FLIGHT';
+            
+            playShootSound();
+
+            moves--;
+            document.getElementById('moves-display').innerText = moves;
+        }
+
+        function checkGameState() {
+            let anyActiveBlocks = blocks.some(b => b.active);
+            
+            if (!anyActiveBlocks) {
+                gameState = 'WIN';
+                document.getElementById('win-overlay').classList.remove('hidden');
+                document.getElementById('wheel-container').classList.add('opacity-50', 'grayscale');
+                document.getElementById('win-desc').innerText = currentLevelIndex === 0 
+                    ? 'Mini Yellow Duck Restored!' 
+                    : 'Mard 482 Sprout Completed!';
+                
+                // If final level
+                if (currentLevelIndex >= levels.length - 1) {
+                    document.getElementById('btn-next-level').innerText = 'Restart Campaign 🐥';
+                } else {
+                    document.getElementById('btn-next-level').innerText = 'Next Level 🍄';
+                }
+            } else if (moves <= 0) {
+                gameState = 'LOSE';
+                document.getElementById('lose-overlay').classList.remove('hidden');
+                document.getElementById('wheel-container').classList.add('opacity-50', 'grayscale');
+            }
+        }
+
+        function nextLevel() {
+            if (currentLevelIndex < levels.length - 1) {
+                loadLevel(currentLevelIndex + 1);
+            } else {
+                loadLevel(0);
+            }
+        }
+
+        // ==========================================
+        // TRAJECTORY PREDICTION
+        // ==========================================
+        function drawTrajectory() {
+            if (gameState !== 'AIMING' || bullet.active || moves <= 0 || !isAiming) return;
+
+            let dx = pointerX - cannon.x;
+            let dy = pointerY - cannon.y;
+            let angle = Math.atan2(dy, dx);
+            
+            if (angle > -0.15 && angle < Math.PI) angle = -0.15;
+            else if (angle >= Math.PI || angle < -Math.PI + 0.15) angle = -Math.PI + 0.15;
+
+            let simX = cannon.x + Math.cos(angle) * 35;
+            let simY = cannon.y + Math.sin(angle) * 35;
+            let simVx = Math.cos(angle) * bulletSpeed;
+            let simVy = Math.sin(angle) * bulletSpeed;
+
+            ctx.beginPath();
+            ctx.moveTo(simX, simY);
+
+            for (let i = 0; i < 160; i++) {
+                let nextX = simX + simVx;
+                let nextY = simY + simVy;
+
+                // Wall Bounces
+                if (nextX - bullet.radius < 0) {
+                    nextX = bullet.radius;
+                    simVx *= -1;
+                } else if (nextX + bullet.radius > canvas.width) {
+                    nextX = canvas.width - bullet.radius;
+                    simVx *= -1;
+                }
+
+                simX = nextX;
+                simY = nextY;
+                ctx.lineTo(simX, simY);
+
+                if (simY < 0) break;
+
+                // Check collision with static pixel art grid
+                let tipY = simY - (bullet.radius / 2);
+                let cellC = Math.floor((simX - gridOffsetX) / cellSize);
+                let cellR = Math.floor((tipY - gridOffsetY) / cellSize);
+                
+                if (cellR >= 0 && cellR < ROWS && cellC >= 0 && cellC < COLS) {
+                    if (grid[cellR][cellC] !== null && grid[cellR][cellC].active) {
+                        break; // Stop ray at hit target
+                    }
+                }
+            }
+
+            ctx.strokeStyle = getColorHex(selectedColor);
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.setLineDash([0, 18]); // Crisp circular dotted line
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // ==========================================
+        // UPDATE ENGINE
+        // ==========================================
+        function update() {
+            // Screen shake attenuation
+            if (screenShake > 0) {
+                screenShake *= 0.88;
+                if (screenShake < 0.1) screenShake = 0;
+            }
+
+            // Wheel rotation in spinning mode
+            if (gameState === 'SPINNING') {
+                wheelRotation = (wheelRotation + 2.5) % 360;
+                document.getElementById('color-wheel').style.transform = `rotate(${wheelRotation}deg)`;
+                determineSelectedColor();
+            }
+
+            // Bullet flight physics
+            if (gameState === 'SHOOTING' && bullet.active) {
+                let nextX = bullet.x + bullet.vx;
+                let nextY = bullet.y + bullet.vy;
+                
+                // Side wall reflections
+                if (nextX - bullet.radius < 0) {
+                    nextX = bullet.radius;
+                    bullet.vx *= -1;
+                } else if (nextX + bullet.radius > canvas.width) {
+                    nextX = canvas.width - bullet.radius;
+                    bullet.vx *= -1;
+                }
+                
+                bullet.x = nextX;
+                bullet.y = nextY;
+                
+                // Top boundary fly-off (miss)
+                if (bullet.y < 0) {
+                    bullet.active = false;
+                    gameState = 'RESOLVING';
+                    setTimeout(() => {
+                        checkGameState();
+                        if (gameState === 'RESOLVING') {
+                            updateActiveColors();
+                            gameState = 'SPINNING';
+                            document.getElementById('wheel-container').classList.remove('scale-90');
+                            document.getElementById('status-text').innerText = 'SPINNING WHEEL';
+                        }
+                    }, 150);
+                } else {
+                    // Collision with block
+                    let tipY = bullet.y - (bullet.radius / 2);
+                    let cellC = Math.floor((bullet.x - gridOffsetX) / cellSize);
+                    let cellR = Math.floor((tipY - gridOffsetY) / cellSize); 
+                    
+                    if (cellR >= 0 && cellR < ROWS && cellC >= 0 && cellC < COLS) {
+                        let hitBlock = grid[cellR][cellC];
+                        if (hitBlock !== null && hitBlock.active) {
+                            bullet.active = false;
+                            gameState = 'RESOLVING';
+
+                            if (hitBlock.color === bullet.color) {
+                                // Match: Trigger 8-direction Ripple Chain Explosion
+                                triggerRippleExplosion(cellR, cellC, bullet.color);
+                            } else {
+                                // Mismatch: Poof dust and bounce away
+                                for (let i = 0; i < 8; i++) {
+                                    particles.push({
+                                        x: bullet.x,
+                                        y: bullet.y,
+                                        vx: (Math.random() - 0.5) * 6,
+                                        vy: (Math.random() - 0.5) * 6,
+                                        life: 0.8,
+                                        decay: 0.06,
+                                        color: '#cbd5e1',
+                                        size: 4,
+                                        isDirectional: false
+                                    });
+                                }
+                                setTimeout(() => {
+                                    checkGameState();
+                                    if (gameState === 'RESOLVING') {
+                                        updateActiveColors();
+                                        gameState = 'SPINNING';
+                                        document.getElementById('wheel-container').classList.remove('scale-90');
+                                        document.getElementById('status-text').innerText = 'SPINNING WHEEL';
+                                    }
+                                }, 250);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // DRAW CANNON & SCENE
+        // ==========================================
+        function drawCannon() {
+            let dx = pointerX - cannon.x;
+            let dy = pointerY - cannon.y;
+            let angle = Math.atan2(dy, dx);
+            
+            if (angle > -0.15 && angle < Math.PI) angle = -0.15;
+            else if (angle >= Math.PI || angle < -Math.PI + 0.15) angle = -Math.PI + 0.15;
+
+            ctx.save();
+            ctx.translate(cannon.x, cannon.y);
+            ctx.rotate(angle);
+            
+            // Cannon Barrel Base
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.roundRect(0, -15, 48, 30, 8);
+            ctx.fill();
+            
+            // Cannon Muzzle Ring
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.roundRect(38, -18, 14, 36, 4);
+            ctx.fill();
+
+            // Accent Glow on barrel
+            ctx.fillStyle = getColorHex(selectedColor);
+            ctx.beginPath();
+            ctx.roundRect(8, -4, 28, 8, 3);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // Cannon Turret Mount
+            ctx.beginPath();
+            ctx.arc(cannon.x, cannon.y, 34, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+            
+            // Core Crystal Indicator
+            ctx.beginPath();
+            ctx.arc(cannon.x, cannon.y, 16, 0, Math.PI * 2);
+            ctx.fillStyle = getColorHex(selectedColor);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.save();
+
+            // Screen Shake Transform
+            if (screenShake > 0) {
+                let ox = (Math.random() - 0.5) * screenShake;
+                let oy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(ox, oy);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Grid Lines in Art Area
+            ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= COLS; i++) {
+                let gx = gridOffsetX + i * cellSize;
+                ctx.beginPath();
+                ctx.moveTo(gx, gridOffsetY);
+                ctx.lineTo(gx, gridOffsetY + ROWS * cellSize);
+                ctx.stroke();
+            }
+            for (let j = 0; j <= ROWS; j++) {
+                let gy = gridOffsetY + j * cellSize;
+                ctx.beginPath();
+                ctx.moveTo(gridOffsetX, gy);
+                ctx.lineTo(gridOffsetX + COLS * cellSize, gy);
+                ctx.stroke();
+            }
+            
+            // Draw Pixel Blocks (Static - no gravity collapse)
+            blocks.forEach(b => b.draw(ctx));
+            
+            // Aiming Trajectory
+            drawTrajectory();
+            
+            // Cannon
+            drawCannon();
+            
+            // Bullet
+            if (bullet.active) {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+                ctx.fillStyle = getColorHex(bullet.color);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // Directional & Explosion Particles
+            drawAndUpdateEffects(ctx);
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function restartGame() {
+            initLevel();
+        }
+
+        // Start Level 1
+        loadLevel(0);
+        gameLoop();
+
+    </script>
+</body>
+</html>
