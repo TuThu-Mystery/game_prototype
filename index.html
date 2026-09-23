@@ -42,6 +42,7 @@
             <div class="flex items-center space-x-1.5 bg-slate-200/90 p-1 rounded-xl border border-slate-300">
                 <button onclick="loadLevel(0)" id="btn-lvl-1" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-amber-500 text-slate-950 shadow-sm">1 🐥</button>
                 <button onclick="loadLevel(1)" id="btn-lvl-2" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900">2 🍄</button>
+                <button onclick="loadLevel(2)" id="btn-lvl-3" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900">3 🍉</button>
             </div>
         </div>
         
@@ -303,6 +304,34 @@
             return mard;
         }
 
+        // Level 3: Sweet Watermelon Slice from User's 3rd image
+        // Color IDs:
+        // 1: Black (#0f172a - Outline & Seeds)
+        // 2: Red (#f43f5e - Juicy Flesh)
+        // 3: Green (#16a34a - Outer Rind)
+        // 4: White (#ffffff - Inner Rind)
+        const WATERMELON_RAW = [
+            '....................',
+            '.........11.........',
+            '........1221........',
+            '.......122221.......',
+            '.......122221.......',
+            '......12212221......',
+            '.....1222222221.....',
+            '.....1222221221.....',
+            '....122221222221....',
+            '...12222222222221...',
+            '...12221222212221...',
+            '..1422222212222241..',
+            '.133442222222244331.',
+            '.133334422224433331.',
+            '.133333344443333331.',
+            '..1133333333333311..',
+            '....113333333311....',
+            '......11111111......',
+            '....................'
+        ];
+
         const levels = [
             {
                 name: "Mini Yellow Duck",
@@ -323,6 +352,16 @@
                 cellSize: 12,
                 offsetY: 20,
                 pattern: buildMardPattern()
+            },
+            {
+                name: "Sweet Watermelon",
+                badge: "LV 3 🍉",
+                moves: 45,
+                rows: WATERMELON_RAW.length,
+                cols: WATERMELON_RAW[0].length,
+                cellSize: 17,
+                offsetY: 30,
+                pattern: WATERMELON_RAW.map(row => row.split('').map(ch => ch === '.' ? 0 : parseInt(ch)))
             }
         ];
 
@@ -334,10 +373,16 @@
             switch(id) {
                 case 1: return '#0f172a'; // Deep Black - high contrast on light gray
                 case 2: 
-                    return currentLevelIndex === 0 ? '#f59e0b' : '#16a34a'; // Duck Yellow or Sprout Green
+                    if (currentLevelIndex === 0) return '#f59e0b'; // Duck Yellow
+                    if (currentLevelIndex === 1) return '#16a34a'; // Sprout Green
+                    return '#f43f5e'; // Watermelon Red Flesh
                 case 3: 
-                    return currentLevelIndex === 0 ? '#ea580c' : '#92400e'; // Duck Orange or Sprout Brown
-                case 4: return '#0284c7'; // Light Blue (Water drop)
+                    if (currentLevelIndex === 0) return '#ea580c'; // Duck Orange
+                    if (currentLevelIndex === 1) return '#92400e'; // Sprout Brown
+                    return '#16a34a'; // Watermelon Green Outer Rind
+                case 4: 
+                    if (currentLevelIndex === 2) return '#ffffff'; // Watermelon White Inner Rind
+                    return '#0284c7'; // Light Blue (Water drop in Level 2)
                 case 5: return '#15803d'; // Dark Green (Blush)
                 case 6: return '#ffffff'; // White (Glint)
                 default: return '#64748b';
@@ -445,7 +490,7 @@
             currentLevel = levels[index];
 
             COLS = currentLevel.cols;
-            ROWS = currentLevel.rows + (index === 0 ? 5 : 8); // Extra bottom rows for stuck blocks
+            ROWS = currentLevel.rows + (index === 0 ? 5 : (index === 1 ? 8 : 6)); // Extra bottom rows for stuck blocks
             cellSize = currentLevel.cellSize;
             gridOffsetY = currentLevel.offsetY;
             gridOffsetX = Math.floor((canvas.width - COLS * cellSize) / 2);
@@ -459,6 +504,9 @@
                 : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900';
             document.getElementById('btn-lvl-2').className = index === 1 
                 ? 'px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-emerald-500 text-white shadow-sm'
+                : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900';
+            document.getElementById('btn-lvl-3').className = index === 2 
+                ? 'px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-rose-500 text-white shadow-sm'
                 : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900';
 
             initLevel();
@@ -855,13 +903,14 @@
                 document.getElementById('wheel-container').classList.add('opacity-50', 'grayscale');
                 document.getElementById('win-desc').innerText = currentLevelIndex === 0 
                     ? 'Mini Yellow Duck Restored!' 
-                    : 'Mard 482 Sprout Completed!';
+                    : (currentLevelIndex === 1 ? 'Mard 482 Sprout Completed!' : 'Sweet Watermelon Slice Restored!');
                 
                 // If final level
                 if (currentLevelIndex >= levels.length - 1) {
                     document.getElementById('btn-next-level').innerText = 'Restart Campaign 🐥';
                 } else {
-                    document.getElementById('btn-next-level').innerText = 'Next Level 🍄';
+                    const nextEmoji = currentLevelIndex === 0 ? '🍄' : '🍉';
+                    document.getElementById('btn-next-level').innerText = `Next Level ${nextEmoji}`;
                 }
             } else if (moves <= 0) {
                 gameState = 'LOSE';
