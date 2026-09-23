@@ -43,6 +43,7 @@
                 <button onclick="loadLevel(0)" id="btn-lvl-1" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-amber-500 text-slate-950 shadow-sm">1 🐥</button>
                 <button onclick="loadLevel(1)" id="btn-lvl-2" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900">2 🍄</button>
                 <button onclick="loadLevel(2)" id="btn-lvl-3" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900">3 🍉</button>
+                <button onclick="loadLevel(3)" id="btn-lvl-4" class="px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900">4 🔴</button>
             </div>
         </div>
         
@@ -218,6 +219,31 @@
             } catch (e) {}
         }
 
+        function playDropSound() {
+            if (!soundEnabled) return;
+            try {
+                const ac = getAudioContext();
+                if (!ac) return;
+                const osc = ac.createOscillator();
+                const gain = ac.createGain();
+                const now = ac.currentTime;
+
+                // Descending whoosh-thud as detached blocks tumble downwards
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.exponentialRampToValueAtTime(70, now + 0.28);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+                osc.connect(gain);
+                gain.connect(ac.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.29);
+            } catch (e) {}
+        }
+
         function toggleSound() {
             soundEnabled = !soundEnabled;
             document.getElementById('sound-status').innerText = soundEnabled ? 'ON' : 'OFF';
@@ -329,7 +355,36 @@
             '..1133333333333311..',
             '....113333333311....',
             '......11111111......',
-            '....................'
+            '.......444444.......'
+        ];
+
+        // Level 4: Iconic Pokéball from User's 4th image
+        // Color IDs:
+        // 1: Black (#0f172a - Outer Shell & Center Belt)
+        // 2: Red (#dc2626 - Upper Hemisphere)
+        // 3: White (#ffffff - Lower Hemisphere, Center Button & Glint)
+        const POKEBALL_RAW = [
+            '........111111........', // r= 0
+            '......1122222211......', // r= 1
+            '....11222222222211....', // r= 2
+            '...1222332222222221...', // r= 3 (glint 33)
+            '..122233332222222221..', // r= 4
+            '..122223322222222221..', // r= 5
+            '.12222222222222222221.', // r= 6
+            '.12222221111112222221.', // r= 7 (button top rim)
+            '1222222213333122222221', // r= 8
+            '1111111113333111111111', // r= 9 (black belt)
+            '1111111113333111111111', // r=10 (black belt)
+            '1333333313333133333331', // r=11 (button + white dome)
+            '.13333331111113333331.', // r=12 (button bottom rim)
+            '.13333333333333333331.', // r=13
+            '..133333333333333331..', // r=14
+            '..133333333333333331..', // r=15
+            '...1333333333333331...', // r=16
+            '...1333333333333331...', // r=17
+            '....11333333333311....', // r=18
+            '......1133333311......', // r=19
+            '........111111........'  // r=20
         ];
 
         const levels = [
@@ -362,6 +417,16 @@
                 cellSize: 17,
                 offsetY: 30,
                 pattern: WATERMELON_RAW.map(row => row.split('').map(ch => ch === '.' ? 0 : parseInt(ch)))
+            },
+            {
+                name: "Iconic Pokéball",
+                badge: "LV 4 🔴",
+                moves: 45,
+                rows: POKEBALL_RAW.length,
+                cols: POKEBALL_RAW[0].length,
+                cellSize: 16,
+                offsetY: 28,
+                pattern: POKEBALL_RAW.map(row => row.split('').map(ch => ch === '.' ? 0 : parseInt(ch)))
             }
         ];
 
@@ -375,11 +440,13 @@
                 case 2: 
                     if (currentLevelIndex === 0) return '#f59e0b'; // Duck Yellow
                     if (currentLevelIndex === 1) return '#16a34a'; // Sprout Green
-                    return '#f43f5e'; // Watermelon Red Flesh
+                    if (currentLevelIndex === 2) return '#f43f5e'; // Watermelon Red Flesh
+                    return '#dc2626'; // Pokéball Red Upper Hemisphere
                 case 3: 
                     if (currentLevelIndex === 0) return '#ea580c'; // Duck Orange
                     if (currentLevelIndex === 1) return '#92400e'; // Sprout Brown
-                    return '#16a34a'; // Watermelon Green Outer Rind
+                    if (currentLevelIndex === 2) return '#16a34a'; // Watermelon Green Outer Rind
+                    return '#ffffff'; // Pokéball White Lower Hemisphere & Button
                 case 4: 
                     if (currentLevelIndex === 2) return '#ffffff'; // Watermelon White Inner Rind
                     return '#0284c7'; // Light Blue (Water drop in Level 2)
@@ -508,6 +575,9 @@
             document.getElementById('btn-lvl-3').className = index === 2 
                 ? 'px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-rose-500 text-white shadow-sm'
                 : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900';
+            document.getElementById('btn-lvl-4').className = index === 3 
+                ? 'px-2.5 py-1 text-xs font-black rounded-lg transition-all bg-red-600 text-white shadow-sm'
+                : 'px-2.5 py-1 text-xs font-black rounded-lg transition-all text-slate-600 hover:text-slate-900';
 
             initLevel();
         }
@@ -515,6 +585,7 @@
         function initLevel() {
             blocks = [];
             grid = [];
+            fallingBlocks = [];
             
             for (let r = 0; r < ROWS; r++) {
                 let row = [];
@@ -672,6 +743,133 @@
             });
         }
 
+        // ==========================================
+        // DETACHED BLOCKS FALLING MECHANICS
+        // ==========================================
+        let fallingBlocks = [];
+
+        function checkFallingBlocks(initialDestroyed) {
+            if (!initialDestroyed || initialDestroyed.length === 0) return 0;
+
+            const dirs8 = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+
+            let newlyDroppedTotal = 0;
+            let cumulativeDestroyedKeys = new Set(initialDestroyed.map(b => `${b.logicalR},${b.logicalC}`));
+
+            // Cascade loop: when a group drops, it might cause another group above it to also lose its bottom support
+            while (true) {
+                const activeBlocks = [];
+                const blockMap = new Map();
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        let b = grid[r][c];
+                        if (b && b.active) {
+                            activeBlocks.push(b);
+                            blockMap.set(`${r},${c}`, b);
+                        }
+                    }
+                }
+
+                if (activeBlocks.length === 0) break;
+
+                // Find connected components with 8-direction adjacency
+                const visited = new Set();
+                const components = [];
+
+                for (let b of activeBlocks) {
+                    const startKey = `${b.logicalR},${b.logicalC}`;
+                    if (visited.has(startKey)) continue;
+
+                    const comp = [];
+                    const queue = [b];
+                    visited.add(startKey);
+
+                    while (queue.length > 0) {
+                        const curr = queue.shift();
+                        comp.push(curr);
+
+                        for (let [dr, dc] of dirs8) {
+                            const nr = curr.logicalR + dr;
+                            const nc = curr.logicalC + dc;
+                            const nKey = `${nr},${nc}`;
+                            if (!visited.has(nKey) && blockMap.has(nKey)) {
+                                visited.add(nKey);
+                                queue.push(blockMap.get(nKey));
+                            }
+                        }
+                    }
+                    components.push(comp);
+                }
+
+                const toDrop = [];
+
+                for (let comp of components) {
+                    const minR = Math.min(...comp.map(b => b.logicalR));
+                    const maxR = Math.max(...comp.map(b => b.logicalR));
+
+                    // Rule 1: "không còn ô pixel nào ở hàng dưới"
+                    // No active blocks anywhere on the board in lower rows below this component
+                    const hasBlockBelow = activeBlocks.some(b => b.logicalR > maxR);
+
+                    // Rule 2: "và các ô đó ko còn bám dính với ô nào ở trên"
+                    // Active blocks exist on the board in rows strictly above this component
+                    const hasBlocksAbove = activeBlocks.some(b => b.logicalR < minR);
+
+                    // Rule 3: Detached as a consequence of destroyed blocks (or cumulative cascade)
+                    const wasDetachedFromDestroyed = comp.some(b => {
+                        for (let [dr, dc] of dirs8) {
+                            if (cumulativeDestroyedKeys.has(`${b.logicalR + dr},${b.logicalC + dc}`)) return true;
+                        }
+                        return false;
+                    });
+
+                    if (!hasBlockBelow && hasBlocksAbove && wasDetachedFromDestroyed) {
+                        toDrop.push(comp);
+                    }
+                }
+
+                if (toDrop.length === 0) break;
+
+                // Process dropping for this cascade wave
+                let cascadeBlocks = [];
+                toDrop.forEach(comp => {
+                    comp.forEach(b => {
+                        b.active = false;
+                        grid[b.logicalR][b.logicalC] = null;
+                        cascadeBlocks.push(b);
+                        cumulativeDestroyedKeys.add(`${b.logicalR},${b.logicalC}`);
+                        newlyDroppedTotal++;
+
+                        // Add to falling physics simulation
+                        fallingBlocks.push({
+                            x: b.visualX,
+                            y: b.visualY,
+                            vx: (Math.random() - 0.5) * 2.2,
+                            vy: -1.0 - Math.random() * 2.0, // slight upward release hop
+                            gravity: 0.85,
+                            rotation: 0,
+                            rotSpeed: (Math.random() - 0.5) * 0.12,
+                            color: b.color,
+                            size: cellSize
+                        });
+                    });
+                });
+
+                playDropSound();
+                screenShake = Math.max(screenShake, Math.min(10, 3 + cascadeBlocks.length * 0.1));
+            }
+
+            if (newlyDroppedTotal > 0) {
+                updateRemainingCount();
+                updateActiveColors();
+            }
+
+            return newlyDroppedTotal;
+        }
+
         // Ripple/Wave-based BFS flood fill
         function triggerRippleExplosion(startR, startC, targetColor) {
             let startBlock = grid[startR][startC];
@@ -716,6 +914,7 @@
             // Execute chain explosion wave by wave
             const WAVE_DELAY_MS = 65; // Time delay between consecutive ripple waves
             let totalWaves = waves.length;
+            let allDestroyedInTurn = [];
 
             waves.forEach((waveGroup, waveIndex) => {
                 setTimeout(() => {
@@ -726,8 +925,9 @@
                     waveGroup.forEach(pos => {
                         let b = grid[pos.r][pos.c];
                         if (b && b.active) {
+                            allDestroyedInTurn.push({ logicalR: pos.r, logicalC: pos.c, color: b.color });
                             b.active = false;
-                            grid[pos.r][pos.c] = null; // Removed from grid, NO GRAVITY COLLAPSE
+                            grid[pos.r][pos.c] = null; // Removed from grid
                             
                             const centerX = b.visualX + cellSize / 2;
                             const centerY = b.visualY + cellSize / 2;
@@ -737,26 +937,71 @@
 
                     updateRemainingCount();
 
-                    // If this was the last wave, wait for particles and check state
+                    // If this was the last wave, wait for particles and check for falling detached blocks
                     if (waveIndex === totalWaves - 1) {
                         setTimeout(() => {
-                            checkGameState();
-                            if (gameState === 'RESOLVING') {
-                                updateActiveColors();
-                                gameState = 'SPINNING';
-                                document.getElementById('wheel-container').classList.remove('scale-90');
-                                document.getElementById('status-text').innerText = 'SPINNING WHEEL';
-                            }
-                        }, 200);
+                            const droppedCount = checkFallingBlocks(allDestroyedInTurn);
+                            const nextDelay = droppedCount > 0 ? 500 : 200;
+
+                            setTimeout(() => {
+                                checkGameState();
+                                if (gameState === 'RESOLVING') {
+                                    updateActiveColors();
+                                    gameState = 'SPINNING';
+                                    document.getElementById('wheel-container').classList.remove('scale-90');
+                                    document.getElementById('status-text').innerText = 'SPINNING WHEEL';
+                                }
+                            }, nextDelay);
+                        }, 120);
                     }
                 }, waveIndex * WAVE_DELAY_MS);
             });
         }
 
         // ==========================================
-        // PARTICLES & SHOCKWAVES UPDATE
+        // PARTICLES, SHOCKWAVES & FALLING BLOCKS UPDATE
         // ==========================================
         function drawAndUpdateEffects(ctx) {
+            // Draw & Update Falling Blocks (Physics: gravity, tumbling rotation)
+            for (let i = fallingBlocks.length - 1; i >= 0; i--) {
+                let fb = fallingBlocks[i];
+                fb.vy += fb.gravity;
+                fb.y += fb.vy;
+                fb.x += fb.vx;
+                fb.rotation += fb.rotSpeed;
+
+                if (fb.y > canvas.height + 60) {
+                    fallingBlocks.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.translate(fb.x + fb.size / 2, fb.y + fb.size / 2);
+                ctx.rotate(fb.rotation);
+
+                const pad = Math.max(1, Math.round(fb.size * 0.05));
+                const s = fb.size - pad * 2;
+                const r = Math.max(2, Math.round(fb.size * 0.15));
+
+                ctx.fillStyle = getColorHex(fb.color);
+                ctx.beginPath();
+                ctx.roundRect(-s / 2, -s / 2, s, s, r);
+                ctx.fill();
+
+                // Subtle outline border
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // 3D Bevel highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.roundRect(-s / 2, -s / 2, s, Math.max(2, Math.round(s * 0.28)), [r, r, 0, 0]);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
             // Draw & Update Shockwaves
             for (let i = shockwaves.length - 1; i >= 0; i--) {
                 let sw = shockwaves[i];
@@ -901,15 +1146,20 @@
                 gameState = 'WIN';
                 document.getElementById('win-overlay').classList.remove('hidden');
                 document.getElementById('wheel-container').classList.add('opacity-50', 'grayscale');
-                document.getElementById('win-desc').innerText = currentLevelIndex === 0 
-                    ? 'Mini Yellow Duck Restored!' 
-                    : (currentLevelIndex === 1 ? 'Mard 482 Sprout Completed!' : 'Sweet Watermelon Slice Restored!');
+                const winTitles = [
+                    'Mini Yellow Duck Restored!',
+                    'Mard 482 Sprout Completed!',
+                    'Sweet Watermelon Slice Restored!',
+                    'Iconic Pokéball Restored!'
+                ];
+                document.getElementById('win-desc').innerText = winTitles[currentLevelIndex] || 'Pixel Art Masterpiece Restored!';
                 
                 // If final level
                 if (currentLevelIndex >= levels.length - 1) {
                     document.getElementById('btn-next-level').innerText = 'Restart Campaign 🐥';
                 } else {
-                    const nextEmoji = currentLevelIndex === 0 ? '🍄' : '🍉';
+                    const nextEmojis = ['🍄', '🍉', '🔴'];
+                    const nextEmoji = nextEmojis[currentLevelIndex] || '✨';
                     document.getElementById('btn-next-level').innerText = `Next Level ${nextEmoji}`;
                 }
             } else if (moves <= 0) {
